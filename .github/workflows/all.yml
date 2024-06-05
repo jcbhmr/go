@@ -57,13 +57,13 @@ jobs:
         env:
           GOOS: ${{ matrix.GOOS }}
           GOARCH: ${{ matrix.GOARCH }}
-      - id: get-version
-        run: |
-          version=$(cat VERSION.cache | grep -Po 'go[0-9]\.\S*' | cut -c 3-)
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: go${{ steps.get-version.outputs.version }}.${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-          path: |
-            ./**
-            !.git
+      # - id: get-version
+      #   run: |
+      #     version=$(cat VERSION.cache | grep -Po 'go[0-9]\.\S*' | cut -c 3-)
+      #     echo "version=$version" >> "$GITHUB_OUTPUT"
+      # - uses: actions/upload-artifact@v4
+      #   with:
+      #     name: go${{ steps.get-version.outputs.version }}.${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+      #     path: |
+      #       ./**
+      #       !.git
