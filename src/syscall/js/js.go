@@ -685,3 +685,44 @@ func CopyBytesToJS(dst Value, src []byte) int {
 //go:wasmimport gojs syscall/js.copyBytesToJS
 //go:noescape
 func copyBytesToJS(dst ref, src []byte) (int, bool)
+
+func Sys() Value {
+	return jsGo
+}
+
+func Import(specifier any, args ...any) Value {
+	if len(args) > 1 {
+		panic("syscall/js: Import: too many arguments")
+	}
+	args2 := append([]any{specifier}, args...)
+	return jsGo.Call("_import", args2...)
+}
+
+var jsPromiseConstructor Value
+
+func (v Value) Await() (Value, error) {
+	type valueErrorPair struct {
+		Value Value
+		Error error
+	}
+	if jsPromiseConstructor.IsUndefined() {
+		jsPromiseConstructor = valueGlobal.Get("Promise")
+	}
+	jsPromise := jsPromiseConstructor.Call("resolve", v)
+	channel := make(chan valueErrorPair)
+	jsHandleResolve := FuncOf(func(this Value, args []Value) any {
+		channel <- valueErrorPair{Value: args[0]}
+		close(channel)
+		return Value{}
+	})
+	defer jsHandleResolve.Release()
+	jsHandleReject := FuncOf(func(this Value, args []Value) any {
+		channel <- valueErrorPair{Error: Error{Value: args[0]}}
+		close(channel)
+		return Value{}
+	})
+	defer jsHandleReject.Release()
+	jsPromise.Call("then", jsHandleResolve, jsHandleReject)
+	pair := <-channel
+	return pair.Value, pair.Error
+}

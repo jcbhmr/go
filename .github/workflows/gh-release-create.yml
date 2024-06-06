@@ -1,0 +1,74 @@
+name: gh release create
+on:
+  workflow_dispatch:
+    inputs:
+      draft:
+        description: ""
+        type: boolean
+        default: false
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+jobs:
+  make:
+    strategy:
+      matrix:
+        include:
+          - { GOOS: linux, GOARCH: amd64 }
+          - { GOOS: linux, GOARCH: arm64 }
+          - { GOOS: windows, GOARCH: amd64 }
+          - { GOOS: darwin, GOARCH: amd64 }
+          - { GOOS: darwin, GOARCH: arm64 }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+      - run: ./make.bash
+        working-directory: src
+        env:
+          GOOS: ${{ matrix.GOOS }}
+          GOARCH: ${{ matrix.GOARCH }}
+      - id: get-version
+        run: |
+          version=$(cat VERSION.cache | grep -Po 'go[0-9]+\.\S*')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.get-version.outputs.version }}.${{ matrix.GOOS }}-${{ matrix.GOARCH }}
+          path: |
+            ./**
+            !.git
+  gh-release-create:
+    needs: [make]
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+      - shell: bash -ex {0}
+        run: |
+          for f in *; do
+            if [[ $f == *windows* ]]; then
+              wd="$PWD"
+              (cd "$f" && zip -r "$wd/$f.zip" .)
+            else
+              wd="$PWD"
+              (cd "$f" && tar -czf "$wd/$f.tar.gz" .)
+            fi
+          done
+      - id: get-version
+        run: |
+          version=$(ls | grep -Po 'go[0-9]+\.[0-9]+\.[0-9]+')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - run: |
+          gh release create \
+            "v$VERSION" \
+            $DRAFT_FLAG \
+            --generate-notes \
+            *.tar.gz *.zip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.get-version.outputs.version }}
+          DRAFT_FLAG: ${{ (inputs.draft && '--draft') || '' }}

@@ -35,17 +35,15 @@ on:
       - PATENTS
       - README.md
       - SECURITY.md
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   all:
     strategy:
       matrix:
-        include:
-          - { GOOS: linux, GOARCH: amd64 }
-          - { GOOS: linux, GOARCH: arm64 }
-          - { GOOS: windows, GOARCH: amd64 }
-          - { GOOS: darwin, GOARCH: amd64 }
-          - { GOOS: darwin, GOARCH: arm64 }
-    runs-on: ubuntu-latest
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-13]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -54,16 +52,3 @@ jobs:
           cache: false
       - run: ./all.bash
         working-directory: src
-        env:
-          GOOS: ${{ matrix.GOOS }}
-          GOARCH: ${{ matrix.GOARCH }}
-      # - id: get-version
-      #   run: |
-      #     version=$(cat VERSION.cache | grep -Po 'go[0-9]\.\S*' | cut -c 3-)
-      #     echo "version=$version" >> "$GITHUB_OUTPUT"
-      # - uses: actions/upload-artifact@v4
-      #   with:
-      #     name: go${{ steps.get-version.outputs.version }}.${{ matrix.GOOS }}-${{ matrix.GOARCH }}
-      #     path: |
-      #       ./**
-      #       !.git

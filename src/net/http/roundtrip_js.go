@@ -53,8 +53,7 @@ var jsFetchMissing = js.Global().Get("fetch").IsUndefined()
 //
 // TODO(go.dev/issue/60810): See if it's viable to test the Fetch API
 // code path.
-var jsFetchDisabled = js.Global().Get("process").Type() == js.TypeObject &&
-	strings.HasPrefix(js.Global().Get("process").Get("argv0").String(), "node")
+var jsFetchDisabled = false
 
 // RoundTrip implements the [RoundTripper] interface using the WHATWG Fetch API.
 func (t *Transport) RoundTrip(req *Request) (*Response, error) {
