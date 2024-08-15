@@ -1,0 +1,39 @@
+name: Create GitHub release
+on:
+  workflow_dispatch:
+    inputs:
+      draft:
+        type: boolean
+concurrency: ${{ github.workflow }}
+jobs:
+  create-release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: goto-bus-stop/setup-zig@v2
+      - uses: actions/checkout@v4
+        with:
+          repository: jart/cosmopolitan
+          path: cosmopolitan
+      - working-directory: cosmopolitan
+        run: |
+          sudo wget -O /usr/bin/ape https://cosmo.zip/pub/cosmos/bin/ape-$(uname -m).elf
+          sudo chmod +x /usr/bin/ape
+          sudo sh -c "echo ':APE:M::MZqFpD::/usr/bin/ape:' >/proc/sys/fs/binfmt_misc/register"
+          sudo sh -c "echo ':APE-jart:M::jartsr::/usr/bin/ape:' >/proc/sys/fs/binfmt_misc/register"
+          ./tool/cosmocc/package.sh
+          echo "$PWD/cosmocc/bin" >> "$GITHUB_PATH"
+      - run: ./misc/ape/build-go-ape
+      - run: |
+          mv misc/ape/._out go
+          zip -r "$(head -n1 VERSION).cosmo-ape.zip" go
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$(head -n1 VERSION)" \
+            ${{ (inputs.draft && '--draft') || '' }} \
+            --title "$(head -n1 VERSION)" \
+            --notes "https://go.dev/dl/#$(head -n1 VERSION)" \
+            "$(head -n1 VERSION).cosmo-ape.zip"

@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -ex
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
+
+pushd "$script_dir/../.."
+goroot="$PWD"
+
+tmpdir=$(mktemp -d)
+cleanup() {
+    trap - SIGINT SIGTERM ERR EXIT
+    rm -rf "$tmpdir"
+}
+trap cleanup SIGINT SIGTERM ERR EXIT
+
+export CC="zig cc"
+export FC="false"
+export CC_FOR_darwin_amd64="zig cc --target x86_64-macos-none"
+export CC_FOR_darwin_arm64="zig cc --target aarch64-macos-none"
+export CC_FOR_linux_amd64="zig cc --target x86_64-linux-musl"
+export CC_FOR_linux_arm64="zig cc --target aarch64-linux-musl"
+export CC_FOR_windows_amd64="zig cc --target x86_64-windows-gnu"
+export CC_FOR_windows_arm64="zig cc --target aarch64-windows-gnu"
+export CXX_FOR_darwin_amd64="zig c++ --target x86_64-macos-none"
+export CXX_FOR_darwin_arm64="zig c++ --target aarch64-macos-none"
+export CXX_FOR_linux_amd64="zig c++ --target x86_64-linux-musl"
+export CXX_FOR_linux_arm64="zig c++ --target aarch64-linux-musl"
+export CXX_FOR_windows_amd64="zig c++ --target x86_64-windows-gnu"
+export CXX_FOR_windows_arm64="zig c++ --target aarch64-windows-gnu"
+
+for t in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64 windows_amd64 windows_arm64; do
+    pushd src
+    export GOOS=$(echo "$t" | cut -d_ -f1)
+    export GOARCH=$(echo "$t" | cut -d_ -f2)
+    ./make.bash
+    popd
+    tdash="$GOOS-$GOARCH"
+
+    mkdir -p "$tmpdir/go.$tdash"
+    if [[ -e "bin/$t" ]]; then
+        mv "bin/$t" "$tmpdir/go.$tdash/bin"
+        rm -rf "bin"
+    else
+        mv "bin" "$tmpdir/go.$tdash/bin"
+    fi
+    mkdir -p "$tmpdir/go.$tdash/pkg/tool"
+    mv "pkg/tool/$t" "$tmpdir/go.$tdash/pkg/tool/$t"
+    mv "pkg/include" "$tmpdir/go.$tdash/pkg/include"
+done
+
+cp -r . "$tmpdir/go.common"
+rm -rf "$tmpdir/go.common/.git" "$tmpdir/go.common/bin" "$tmpdir/go.common/pkg"
+
+version=$(head -n1 VERSION | grep -Po '\d+\.\d+\.\d+')
+
+cosmoc++ -std=c++23 -fexceptions -DVERSION=\"$version\" -o go "$script_dir/go-ape.cpp"
+cosmoc++ -std=c++23 -fexceptions -DVERSION=\"$version\" -o gofmt "$script_dir/gofmt-ape.cpp"
+rm go.com.dbg go.aarch64.elf gofmt.com.dbg gofmt.aarch64.elf
+
+pushd "$tmpdir"
+zip -Arq "$goroot/go" .
+zip -Arq "$goroot/gofmt" .
+popd
