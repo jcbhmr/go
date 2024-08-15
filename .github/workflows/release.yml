@@ -28,7 +28,7 @@ jobs:
       - run: ./misc/ape/build-go-ape
       - run: |
           mv misc/ape/._out go
-          zip -r "$(head -n1 VERSION).cosmo-ape.zip" go
+          zip -r "$(head -n1 VERSION).ape.zip" go
       - env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -36,4 +36,4 @@ jobs:
             ${{ (inputs.draft && '--draft') || '' }} \
             --title "$(head -n1 VERSION)" \
             --notes "https://go.dev/dl/#$(head -n1 VERSION)" \
-            "$(head -n1 VERSION).cosmo-ape.zip"
+            "$(head -n1 VERSION).ape.zip"
