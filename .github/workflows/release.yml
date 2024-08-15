@@ -34,7 +34,7 @@ jobs:
           mv go stage/go/go
           mv gofmt stage/go/gofmt
           cd stage
-          zip -r "../$(head -n1 VERSION).ape.zip" .
+          zip -r "../$(head -n1 ../VERSION).ape.zip" .
       - env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
