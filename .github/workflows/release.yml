@@ -30,8 +30,11 @@ jobs:
           echo "$PWD/cosmocc/bin" >> "$GITHUB_PATH"
       - run: ./misc/ape/build-go-ape
       - run: |
-          mv misc/ape/._out go
-          zip -r "$(head -n1 VERSION).ape.zip" go
+          mkdir -p stage/go
+          mv go stage/go/go
+          mv gofmt stage/go/gofmt
+          cd stage
+          zip -r "../$(head -n1 VERSION).ape.zip" .
       - env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
