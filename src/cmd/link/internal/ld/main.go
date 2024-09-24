@@ -477,6 +477,12 @@ func Main(arch *sys.Arch, theArch Arch) {
 	ctxt.archive()
 	bench.Report(os.Stdout)
 
+	// Wrap in JavaScript if js&wasm. This will completely rewrite the file.
+	if ctxt.IsJS() && ctxt.BuildMode == BuildModeExe && arch.Family == sys.Wasm {
+		bench.Start("wrapWASMInJS")
+		wrapWASMInJS(ctxt, *flagOutfile)
+	}
+
 	errorexit()
 }
 

@@ -12,6 +12,7 @@
 package js
 
 import (
+	"math/big"
 	"runtime"
 	"unsafe"
 )
@@ -42,6 +43,7 @@ const (
 	typeFlagString
 	typeFlagSymbol
 	typeFlagFunction
+	typeFlagBigint
 )
 
 func makeValue(r ref) Value {
@@ -147,6 +149,7 @@ func Global() Value {
 //	| string                 | string                 |
 //	| []interface{}          | new array              |
 //	| map[string]interface{} | new object             |
+//  | math/big.Int           | bigint                 |
 //
 // Panics if x is not one of the expected types.
 func ValueOf(x any) Value {
@@ -205,6 +208,8 @@ func ValueOf(x any) Value {
 			o.Set(k, v)
 		}
 		return o
+	case *big.Int:
+		return Global().Call("BigInt", x.String())
 	default:
 		panic("ValueOf: invalid value")
 	}
@@ -231,6 +236,7 @@ const (
 	TypeSymbol
 	TypeObject
 	TypeFunction
+	TypeBigint
 )
 
 func (t Type) String() string {
@@ -251,6 +257,8 @@ func (t Type) String() string {
 		return "object"
 	case TypeFunction:
 		return "function"
+	case TypeBigint:
+		return "bigint"
 	default:
 		panic("bad type")
 	}
@@ -284,6 +292,8 @@ func (v Value) Type() Type {
 		return TypeSymbol
 	case typeFlagFunction:
 		return TypeFunction
+	case typeFlagBigint:
+		return TypeBigint
 	default:
 		panic("bad type flag")
 	}
@@ -595,6 +605,8 @@ func (v Value) String() string {
 		return "<object>"
 	case TypeFunction:
 		return "<function>"
+	case TypeBigint:
+		return "<bigint: " + jsString(v) + ">"
 	default:
 		panic("bad type")
 	}
@@ -620,6 +632,19 @@ func valuePrepareString(v ref) (ref, int)
 //go:wasmimport gojs syscall/js.valueLoadString
 //go:noescape
 func valueLoadString(v ref, b []byte)
+
+func (v Value) BigInt() *big.Int {
+	if vType := v.Type(); vType != TypeBigint {
+		panic(&ValueError{"Value.Bigint", vType})
+	}
+	str := jsString(v)
+	i := new(big.Int)
+	_, ok := i.SetString(str, 10)
+	if !ok {
+		panic("syscall/js: invalid BigInt: " + str)
+	}
+	return i
+}
 
 // InstanceOf reports whether v is an instance of type t according to JavaScript's instanceof operator.
 func (v Value) InstanceOf(t Value) bool {
@@ -685,3 +710,40 @@ func CopyBytesToJS(dst Value, src []byte) int {
 //go:wasmimport gojs syscall/js.copyBytesToJS
 //go:noescape
 func copyBytesToJS(dst ref, src []byte) (int, bool)
+
+func(v Value) Await() (Value, error) {
+	type res struct {
+		v Value
+		e error
+	}
+	if !v.Type().isObject() {
+		return v, nil
+	}
+	if v.Get("then").Type() != TypeFunction {
+		return v, nil
+	}
+	ch := make(chan res, 1)
+	onFulfilled := FuncOf(func(this Value, args []Value) interface{} {
+		ch <- res{args[0], nil}
+		close(ch)
+		return nil
+	})
+	defer onFulfilled.Release()
+	onRejected := FuncOf(func(this Value, args []Value) interface{} {
+		ch <- res{Value{}, Error{args[0]}}
+		close(ch)
+		return nil
+	})
+	defer onRejected.Release()
+	v.Call("then", onFulfilled, onRejected)
+	r := <-ch
+	return r.v, r.e
+}
+
+func Import(specifier any, options any) Value {
+	return jsGo.Call("_import", specifier, options)
+}
+
+func Sys() Value {
+	return jsGo
+}

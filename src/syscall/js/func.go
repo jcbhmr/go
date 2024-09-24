@@ -66,7 +66,7 @@ func init() {
 	setEventHandler(handleEvent)
 }
 
-// handleEvent retrieves the pending event (window._pendingEvent) and calls the js.Func on it.
+// handleEvent retrieves the pending event (go._pendingEvent) and calls the js.Func on it.
 // It returns true if an event was handled.
 func handleEvent() bool {
 	// Retrieve the event from js
