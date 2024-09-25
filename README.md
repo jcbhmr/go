@@ -1,3 +1,54 @@
+# Go multiplatform & Go better `GOOS=js`
+
+## Installation
+
+```sh
+
+```
+
+## Usage
+
+```js
+import { Go } from "./wasm_exec.js";
+
+const go = new Go({
+    args: process.argv.slice(1),
+    env: process.env,
+    returnOnExit: false,
+    import: (s, o) => import(s),
+    importMeta: import.meta,
+});
+const { instance } = await WebAssembly.instantiateStreaming(
+    fetch(import.meta.resolve("./main.wasm")),
+    go.getImportObject(),
+);
+await go.start(instance);
+```
+
+<details><summary>Older Go style</summary>
+
+```js
+import { Go } from "./wasm_exec.js";
+
+const go = new Go();
+go.argv = process.argv.slice(1);
+go.env = process.env;
+go.exit = process.exit;
+go.import = (s, o) => import(s);
+go.importMeta = import.meta;
+const { instance } = await WebAssembly.instantiateStreaming(
+    fetch(import.meta.resolve("./main.wasm")),
+    go.importObject,
+);
+await go.run(instance);
+```
+
+</details>
+
+## Development
+
+---
+
 # The Go Programming Language
 
 Go is an open source programming language that makes it easy to build simple,
