@@ -12,15 +12,15 @@
 import { Go } from "./wasm_exec.js";
 
 const go = new Go({
-    args: process.argv.slice(1),
-    env: process.env,
-    returnOnExit: false,
-    import: (s, o) => import(s),
-    importMeta: import.meta,
+  args: process.argv.slice(1),
+  env: process.env,
+  returnOnExit: false,
+  import: (s, o) => import(s),
+  importMeta: import.meta,
 });
 const { instance } = await WebAssembly.instantiateStreaming(
-    fetch(import.meta.resolve("./main.wasm")),
-    go.getImportObject(),
+  fetch(import.meta.resolve("./main.wasm")),
+  go.getImportObject()
 );
 await go.start(instance);
 ```
@@ -37,15 +37,26 @@ go.exit = process.exit;
 go.import = (s, o) => import(s);
 go.importMeta = import.meta;
 const { instance } = await WebAssembly.instantiateStreaming(
-    fetch(import.meta.resolve("./main.wasm")),
-    go.importObject,
+  fetch(import.meta.resolve("./main.wasm")),
+  go.importObject
 );
 await go.run(instance);
 ```
 
 </details>
 
+**Changes:**
+
+- ESM-first design. Can be transpiled to CommonJS with TypeScript, Vite, Rollup, esbuild, or by hand.
+- Provides access to newer ECMAScript features like `import()` and `import.meta` to Go code. Can be customized on a per-instance basis.
+- Supports `bigint` primitives across the JS/Go boundary.
+- Implements more OS-level features like `exec.Command()` using Node.js APIs.
+
 ## Development
+
+- `gort0.min.js` is the minified bundle of code that just needs `__TEST_WASM_BASE64__` replaced with a JavaScript string of the base64 encoded WebAssembly compiled by `go build`. It is generated from `gort0.js` and `wasm_exec.js` using the Go esbuild package.
+- `gort0.js` is the bootstrap code that decodes the base64 embedded string that should be embedded at build-time and then invokes the JS/Go runtime bridge with the WebAssembly module.
+- `wasm_exec.js` is the Go runtime bridge code. It is intended to be copy-and-pasted into user's projects and should be entirely self-contained. It exports the `Go` class that is similar to Node.js' `node:wasi` `WASI` class. It is a drop-in replacement for older `wasm_exec.js` JS/Go runtime bridge code. It is backwards compatible with older compiled Go WebAssembly modules.
 
 ---
 
@@ -55,7 +66,7 @@ Go is an open source programming language that makes it easy to build simple,
 reliable, and efficient software.
 
 ![Gopher image](https://golang.org/doc/gopher/fiveyears.jpg)
-*Gopher image by [Renee French][rf], licensed under [Creative Commons 4.0 Attribution license][cc4-by].*
+_Gopher image by [Renee French][rf], licensed under [Creative Commons 4.0 Attribution license][cc4-by]._
 
 Our canonical Git repository is located at https://go.googlesource.com/go.
 There is a mirror of the repository at https://github.com/golang/go.
