@@ -1,18 +1,17 @@
 package ld
 
 import (
-	"bytes"
 	_ "embed"
 	"encoding/base64"
-	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 )
 
 func wrapWASMInJS(ctxt *Link, flagOutfile string) {
-	appWASM, err := os.ReadFile(flagOutfile)
+	testWASM, err := os.ReadFile(flagOutfile)
 	if err != nil {
 		Exitf("failed to read WASM: %s", err)
 	}
@@ -28,11 +27,18 @@ func wrapWASMInJS(ctxt *Link, flagOutfile string) {
 	if err != nil {
 		Exitf("failed to read %s: %s", fpath, err)
 	}
+	
+	// This is a poor man's bundler. It works OK for this narrow use case.
 
-	// Poor man's bundler
-	appWASMBase64 := base64.StdEncoding.EncodeToString(appWASM)
-	appJS := strings.Replace(string(gort0JS), `import { Go } from "./wasm_exec.js";`, strings.Replace(string(wasmExecJS), `export class Go {`, `class Go {`, 1), 1)
-	appJS = strings.Replace(appJS, `#!/usr/bin/env node` + "\n", `#!/usr/bin/env node` + "\n" + `const TEST_WASM_BASE64="` + appWASMBase64 + `";` + "\n", 1)
+	testWASMBase64 := base64.StdEncoding.EncodeToString(testWASM)
+
+	wasmExecJSWithoutExports := string(wasmExecJS)
+	wasmExecJSWithoutExports = regexp.MustCompile(`^export (var|let|const|function|class)`).ReplaceAllString(wasmExecJSWithoutExports, "$1")
+	wasmExecJSWithoutExports = regexp.MustCompile(`^export \{.*\}`).ReplaceAllString(wasmExecJSWithoutExports, "")
+
+	appJS := string(gort0JS)
+	appJS = strings.Replace(appJS, `REPLACE_ME_WITH_TEST_WASM_BASE64`, `"` + testWASMBase64 + `"`, 1)
+	appJS = strings.Replace(appJS, `import { Go } from "./wasm_exec.js";`, wasmExecJSWithoutExports, 1)
 
 	err = os.WriteFile(flagOutfile, []byte(appJS), 0644)
 	if err != nil {

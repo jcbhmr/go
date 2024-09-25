@@ -12,7 +12,6 @@
 package js
 
 import (
-	"math/big"
 	"runtime"
 	"unsafe"
 )
@@ -149,7 +148,6 @@ func Global() Value {
 //	| string                 | string                 |
 //	| []interface{}          | new array              |
 //	| map[string]interface{} | new object             |
-//  | math/big.Int           | bigint                 |
 //
 // Panics if x is not one of the expected types.
 func ValueOf(x any) Value {
@@ -208,8 +206,6 @@ func ValueOf(x any) Value {
 			o.Set(k, v)
 		}
 		return o
-	case *big.Int:
-		return Global().Call("BigInt", x.String())
 	default:
 		panic("ValueOf: invalid value")
 	}
@@ -633,19 +629,6 @@ func valuePrepareString(v ref) (ref, int)
 //go:noescape
 func valueLoadString(v ref, b []byte)
 
-func (v Value) BigInt() *big.Int {
-	if vType := v.Type(); vType != TypeBigint {
-		panic(&ValueError{"Value.Bigint", vType})
-	}
-	str := jsString(v)
-	i := new(big.Int)
-	_, ok := i.SetString(str, 10)
-	if !ok {
-		panic("syscall/js: invalid BigInt: " + str)
-	}
-	return i
-}
-
 // InstanceOf reports whether v is an instance of type t according to JavaScript's instanceof operator.
 func (v Value) InstanceOf(t Value) bool {
 	r := valueInstanceOf(v.ref, t.ref)
@@ -740,7 +723,7 @@ func(v Value) Await() (Value, error) {
 	return r.v, r.e
 }
 
-func Import(specifier any, options any) Value {
+func Import(specifier string, options map[string]any) Value {
 	return jsGo.Call("_import", specifier, options)
 }
 

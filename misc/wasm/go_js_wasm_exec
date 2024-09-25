@@ -14,7 +14,15 @@ case "$GOJSRUNTIME" in
 		exec bun ${GOJSRUNTIMEARGS:-} "$1" "${@:2}"
 		;;
 	"browser")
-		exec python3 -m webbrowser "file:///?$1"
+		SOURCE="${BASH_SOURCE[0]}"
+		while [ -h "$SOURCE" ]; do
+			DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+			SOURCE="$(readlink "$SOURCE")"
+			[[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+		done
+		DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+
+		exec go run "$DIR/go_js_wasm_exec_browser.go" "$1" "${@:2}"
 		;;
 	*)
 		echo "Unknown Go JS runtime specified: $GOJSRUNTIME"

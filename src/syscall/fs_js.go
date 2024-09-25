@@ -15,8 +15,8 @@ import (
 // Provided by package runtime.
 func now() (sec int64, nsec int32)
 
-var jsProcess, _ = js.Import("node:process").Await()
-var jsFS, _ = js.Import("node:fs").Await()
+var jsProcess, _ = js.Import("node:process", nil).Await()
+var jsFS, _ = js.Import("node:fs", nil).Await()
 var constants = jsFS.Get("constants")
 
 var uint8Array = js.Global().Get("Uint8Array")

@@ -8,15 +8,13 @@
 // @ts-check
 /// <reference lib="ES2020" />
 /// <reference lib="DOM" />
+export {};
 
 import { Go } from "./wasm_exec.js";
 
-// /** Injected by the Go compiler when combining WASM and this JS bootstrap. */
-// No way to do this in JSDoc yet.
-// declare const TEST_WASM_BASE64: string;
 // TODO: Use `Uint8Array.fromBase64()` when it's available
 // @ts-ignore
-const testWASM = Uint8Array.from(atob(TEST_WASM_BASE64), (m) =>
+const testWASM = Uint8Array.from(atob(REPLACE_ME_WITH_TEST_WASM_BASE64), (m) =>
   m.charCodeAt(0)
 );
 const go = new Go({

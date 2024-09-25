@@ -7,6 +7,7 @@
 // @ts-check
 /// <reference lib="ES2020" />
 /// <reference lib="DOM" />
+export {};
 
 /**
  * @template T
@@ -31,8 +32,8 @@ const PromiseWithResolvers =
   Promise.withResolvers?.call.bind(Promise.withResolvers) ??
   PromiseWithResolversImpl;
 
-/** @type {TextEncoder} */
-let textEncoder;
+/** @type {TextEncoder | null} */
+let textEncoder = null;
 
 /**
  * @param {string} s
@@ -43,8 +44,8 @@ function encode(s) {
   return textEncoder.encode(s);
 }
 
-/** @type {TextDecoder} */
-let textDecoder;
+/** @type {TextDecoder | null} */
+let textDecoder = null;
 
 /**
  * @param {Uint8Array} b
@@ -68,8 +69,8 @@ function decode(b) {
  */
 
 /**
- * Modeled after `node:wasi`. Maintains compatibility with older `wasm_exec.js`
- * `Go` versions.
+ * The Go runtime for JavaScript. Modeled after `node:wasi`. Maintains
+ * compatibility with older `wasm_exec.js` `Go` versions.
  *
  * @example
  * import { Go } from "./wasm_exec.js";
@@ -92,14 +93,31 @@ function decode(b) {
  *   go.getImportObject()
  * );
  * await go.start(instance);
+ *
+ * @example
+ * ```go
+ * js.Sys().Call("myMethod", "Hello world!")
+ * ```
+ * ```js
+ * const go = new Go({ importMeta: import.meta });
+ * go.myMethod = (message) => {
+ *   console.log(message);
+ * };
+ * const { instance } = await WebAssembly.instantiateStreaming(
+ *   fetch("test.wasm"),
+ *   go.getImportObject()
+ * );
+ * const exitCode = await go.start(instance);
+ * console.log("Exited with code %d", exitCode);
+ * ```
  */
 export class Go {
-
   /**
    * If `null`, then we assume a classic script environment (non-ESM). Expected to have at least `import.meta.url` and `import.meta.resolve()`. This is set by the constructor.
+   * @protected
    * @type {ImportMeta | null}
    */
-  #importMeta;
+  _importMeta;
 
   /** @type {"created" | "starting" | "running" | "exited"} */
   #readyState = "created";
@@ -114,7 +132,7 @@ export class Go {
 
   /** @param {GoOptions} options */
   constructor(options = {}) {
-    this.#importMeta = options.importMeta ?? null;
+    this._importMeta = options.importMeta ?? null;
     this.#returnOnExit = options.returnOnExit ?? true;
   }
 
@@ -135,8 +153,8 @@ export class Go {
    * @returns {Promise<any>}
    */
   async _import(specifier, options = undefined) {
-    if (this.#importMeta) {
-      return import(this.#importMeta.resolve(specifier));
+    if (this._importMeta) {
+      return import(this._importMeta.resolve(specifier));
     } else {
       return import(specifier);
     }
@@ -200,17 +218,17 @@ export class Go {
       return;
     }
 
-    let id = this/** @type {Map<any, number>} */ .#ids
+    let id = this /** @type {Map<any, number>} */.#ids
       .get(v);
     if (id === undefined) {
-      this/** @type {number[]} */ .#idPool
+      this /** @type {number[]} */.#idPool
         .pop();
       if (id === undefined) {
         id = /** @type {any[]} */ this.#values.length;
       }
       /** @type {any[]} */ this.#values[id] = v;
       /** @type {number[]} */ this.#goRefCounts[id] = 0;
-      this/** @type {Map<any, number>} */ .#ids
+      this /** @type {Map<any, number>} */.#ids
         .set(v, id);
     }
     /** @type {number[]} */ this.#goRefCounts[id]++;
@@ -259,7 +277,11 @@ export class Go {
     return a;
   }
 
-  #loadString(addr: number) {
+  /**
+   * @param {number} addr
+   * @returns {string}
+   */
+  #loadString(addr) {
     const saddr = this.#getInt64(addr + 0);
     const len = this.#getInt64(addr + 8);
     return decode(new Uint8Array(this.#dataView.buffer, saddr, len));
@@ -313,7 +335,9 @@ export class Go {
         this.#process.exit(code);
       }
       this.#readyState = "exited";
-      (/** @type {{ promise: Promise<number>; resolve: (value: number) => void; reject: (reason: any) => void; }} */(this.#startDeferred)).resolve(code);
+      /** @type {{ promise: Promise<number>; resolve: (value: number) => void; reject: (reason: any) => void; }} */ (
+        this.#startDeferred
+      ).resolve(code);
       this.#instance = null;
       this.#dataViewCache = null;
       this.#values = null;
@@ -348,7 +372,9 @@ export class Go {
      */
     "runtime.resetMemoryDataView": (sp) => {
       sp >>>= 0;
-      const memory = (/** @type {WebAssembly.Memory} */((/** @type {WebAssembly.Instance} */(this.#instance)).exports.mem));
+      const memory = /** @type {WebAssembly.Memory} */ (
+        /** @type {WebAssembly.Instance} */ (this.#instance).exports.mem
+      );
       this.#dataViewCache = new DataView(memory.buffer);
     },
 
@@ -356,7 +382,7 @@ export class Go {
      * ```go
      * func nanotime1() int64
      * ```
-     * @param {number} sp 
+     * @param {number} sp
      */
     "runtime.nanotime1": (sp) => {
       sp >>>= 0;
@@ -370,7 +396,7 @@ export class Go {
      * ```go
      * func walltime() (sec int64, nsec int32)
      * ```
-     * @param {number} sp 
+     * @param {number} sp
      */
     "runtime.walltime": (sp) => {
       sp >>>= 0;
@@ -383,17 +409,19 @@ export class Go {
      * ```go
      * func scheduleTimeoutEvent(delay int64) int32
      * ```
-     * @param {number} sp 
+     * @param {number} sp
      */
     "runtime.scheduleTimeoutEvent": (sp) => {
       sp >>>= 0;
       const id = this.#nextCallbackTimeoutID;
       this.#nextCallbackTimeoutID++;
-      (/** @type {Map<number, number>} */(this.#scheduledTimeouts)).set(
+      /** @type {Map<number, number>} */ (this.#scheduledTimeouts).set(
         id,
         setTimeout(() => {
           this.#resume();
-          while ((/** @type {Map<number, number>} */(this.#scheduledTimeouts)).has(id)) {
+          while (
+            /** @type {Map<number, number>} */ (this.#scheduledTimeouts).has(id)
+          ) {
             // for some reason Go failed to register the timeout event, log and try again
             // (temporary workaround for https://github.com/golang/go/issues/28975)
             console.warn("scheduleTimeoutEvent: missed timeout event");
@@ -408,54 +436,81 @@ export class Go {
      * ```go
      * func clearTimeoutEvent(id int32)
      * ```
-     * @param {number} sp 
+     * @param {number} sp
      */
     "runtime.clearTimeoutEvent": (sp) => {
       sp >>>= 0;
       const id = this.#dataView.getInt32(sp + 8, true);
-      clearTimeout((/** @type {Map<number, number>} */(this.#scheduledTimeouts)).get(id));
-      (/** @type {Map<number, number>} */(this.#scheduledTimeouts)).delete(id);
+      clearTimeout(
+        /** @type {Map<number, number>} */ (this.#scheduledTimeouts).get(id)
+      );
+      /** @type {Map<number, number>} */ (this.#scheduledTimeouts).delete(id);
     },
 
-    // func getRandomData(r []byte)
-    "runtime.getRandomData": (sp: number) => {
+    /**
+     * ```go
+     * func getRandomData(r []byte)
+     * ```
+     * @param {number} sp
+     */
+    "runtime.getRandomData": (sp) => {
       sp >>>= 0;
-      cryptoGetRandomValues(this.#loadSlice(sp + 8));
+      crypto.getRandomValues(this.#loadSlice(sp + 8));
     },
 
-    // func finalizeRef(v ref)
-    "syscall/js.finalizeRef": (sp: number) => {
+    /**
+     * ```go
+     * func finalizeRef(v ref)
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.finalizeRef": (sp) => {
       sp >>>= 0;
       const id = this.#dataView.getUint32(sp + 8, true);
-      this.#goRefCounts![id]--;
-      if (this.#goRefCounts![id] === 0) {
-        const v = this.#values![id];
-        this.#values![id] = null;
-        this.#ids!.delete(v);
-        this.#idPool!.push(id);
+      this.#goRefCounts[id]--;
+      if (this.#goRefCounts[id] === 0) {
+        const v = this.#values[id];
+        this.#values[id] = null;
+        this.#ids.delete(v);
+        this.#idPool.push(id);
       }
     },
 
-    // func stringVal(value string) ref
-    "syscall/js.stringVal": (sp: number) => {
+    /**
+     * ```go
+     * func stringVal(value string) ref
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.stringVal": (sp) => {
       sp >>>= 0;
       this.#storeValue(sp + 24, this.#loadString(sp + 8));
     },
 
-    // func valueGet(v ref, p string) ref
-    "syscall/js.valueGet": (sp: number) => {
+    /**
+     * ```go
+     * func valueGet(v ref, p string) ref
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.valueGet": (sp) => {
       sp >>>= 0;
       const result = Reflect.get(
         this.#loadValue(sp + 8),
         this.#loadString(sp + 16)
       );
-      const getsp = this.#instance!.exports.getsp as () => number;
+      const getsp = this.#instance.exports.getsp;
       sp = getsp() >>> 0; // see comment above
       this.#storeValue(sp + 32, result);
     },
 
-    // func valueSet(v ref, p string, x ref)
-    "syscall/js.valueSet": (sp: number) => {
+    /**
+     * ```go
+     * func valueSet(v ref, p string, x ref)
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.valueSet": (sp) => {
       sp >>>= 0;
       Reflect.set(
         this.#loadValue(sp + 8),
@@ -464,8 +519,13 @@ export class Go {
       );
     },
 
-    // func valueDelete(v ref, p string)
-    "syscall/js.valueDelete": (sp: number) => {
+    /**
+     * ```go
+     * func valueDelete(v ref, p string)
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.valueDelete": (sp) => {
       sp >>>= 0;
       Reflect.deleteProperty(
         this.#loadValue(sp + 8),
@@ -473,8 +533,13 @@ export class Go {
       );
     },
 
-    // func valueIndex(v ref, i int) ref
-    "syscall/js.valueIndex": (sp: number) => {
+    /**
+     * ```go
+     * func valueIndex(v ref, i int) ref
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.valueIndex": (sp) => {
       sp >>>= 0;
       this.#storeValue(
         sp + 24,
@@ -482,8 +547,13 @@ export class Go {
       );
     },
 
-    // valueSetIndex(v ref, i int, x ref)
-    "syscall/js.valueSetIndex": (sp: number) => {
+    /**
+     * ```go
+     * valueSetIndex(v ref, i int, x ref)
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.valueSetIndex": (sp) => {
       sp >>>= 0;
       Reflect.set(
         this.#loadValue(sp + 8),
@@ -492,87 +562,122 @@ export class Go {
       );
     },
 
-    // func valueCall(v ref, m string, args []ref) (ref, bool)
-    "syscall/js.valueCall": (sp: number) => {
+    /**
+     * ```go
+     * func valueCall(v ref, m string, args []ref) (ref, bool)
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.valueCall": (sp) => {
       sp >>>= 0;
       try {
         const v = this.#loadValue(sp + 8);
         const m = Reflect.get(v, this.#loadString(sp + 16));
         const args = this.#loadSliceOfValues(sp + 32);
         const result = Reflect.apply(m, v, args);
-        const getsp = this.#instance!.exports.getsp as () => number;
+        const getsp = this.#instance.exports.getsp;
         sp = getsp() >>> 0; // see comment above
         this.#storeValue(sp + 56, result);
         this.#dataView.setUint8(sp + 64, 1);
       } catch (err) {
-        const getsp = this.#instance!.exports.getsp as () => number;
+        const getsp = this.#instance.exports.getsp;
         sp = getsp() >>> 0; // see comment above
         this.#storeValue(sp + 56, err);
         this.#dataView.setUint8(sp + 64, 0);
       }
     },
 
-    // func valueInvoke(v ref, args []ref) (ref, bool)
-    "syscall/js.valueInvoke": (sp: number) => {
+    /**
+     * ```go
+     * func valueInvoke(v ref, args []ref) (ref, bool)
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.valueInvoke": (sp) => {
       sp >>>= 0;
       try {
         const v = this.#loadValue(sp + 8);
         const args = this.#loadSliceOfValues(sp + 16);
         const result = Reflect.apply(v, undefined, args);
-        const getsp = this.#instance!.exports.getsp as () => number;
+        const getsp = this.#instance.exports.getsp;
         sp = getsp() >>> 0; // see comment above
         this.#storeValue(sp + 40, result);
         this.#dataView.setUint8(sp + 48, 1);
       } catch (err) {
-        const getsp = this.#instance!.exports.getsp as () => number;
+        const getsp = this.#instance.exports.getsp;
         sp = getsp() >>> 0; // see comment above
         this.#storeValue(sp + 40, err);
         this.#dataView.setUint8(sp + 48, 0);
       }
     },
 
-    // func valueNew(v ref, args []ref) (ref, bool)
-    "syscall/js.valueNew": (sp: number) => {
+    /**
+     * ```go
+     * func valueNew(v ref, args []ref) (ref, bool)
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.valueNew": (sp) => {
       sp >>>= 0;
       try {
         const v = this.#loadValue(sp + 8);
         const args = this.#loadSliceOfValues(sp + 16);
         const result = Reflect.construct(v, args);
-        const getsp = this.#instance!.exports.getsp as () => number;
+        const getsp = this.#instance.exports.getsp;
         sp = getsp() >>> 0; // see comment above
         this.#storeValue(sp + 40, result);
         this.#dataView.setUint8(sp + 48, 1);
       } catch (err) {
-        const getsp = this.#instance!.exports.getsp as () => number;
+        const getsp = this.#instance.exports.getsp;
         sp = getsp() >>> 0; // see comment above
         this.#storeValue(sp + 40, err);
         this.#dataView.setUint8(sp + 48, 0);
       }
     },
 
-    // func valueLength(v ref) int
-    "syscall/js.valueLength": (sp: number) => {
+    /**
+     * ```go
+     * func valueLength(v ref) int
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.valueLength": (sp) => {
       sp >>>= 0;
       this.#setInt64(sp + 16, parseInt(this.#loadValue(sp + 8).length));
     },
 
-    // valuePrepareString(v ref) (ref, int)
-    "syscall/js.valuePrepareString": (sp: number) => {
+    /**
+     * ```go
+     * valuePrepareString(v ref) (ref, int)
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.valuePrepareString": (sp) => {
       sp >>>= 0;
       const str = encode(String(this.#loadValue(sp + 8)));
       this.#storeValue(sp + 16, str);
       this.#setInt64(sp + 24, str.length);
     },
 
-    // valueLoadString(v ref, b []byte)
-    "syscall/js.valueLoadString": (sp: number) => {
+    /**
+     * ```go
+     * valueLoadString(v ref, b []byte)
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.valueLoadString": (sp) => {
       sp >>>= 0;
       const str = this.#loadValue(sp + 8);
       this.#loadSlice(sp + 16).set(str);
     },
 
-    // func valueInstanceOf(v ref, t ref) bool
-    "syscall/js.valueInstanceOf": (sp: number) => {
+    /**
+     * ```go
+     * func valueInstanceOf(v ref, t ref) bool
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.valueInstanceOf": (sp) => {
       sp >>>= 0;
       this.#dataView.setUint8(
         sp + 24,
@@ -580,8 +685,13 @@ export class Go {
       );
     },
 
-    // func copyBytesToGo(dst []byte, src ref) (int, bool)
-    "syscall/js.copyBytesToGo": (sp: number) => {
+    /**
+     * ```go
+     * func copyBytesToGo(dst []byte, src ref) (int, bool)
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.copyBytesToGo": (sp) => {
       sp >>>= 0;
       const dst = this.#loadSlice(sp + 8);
       const src = this.#loadValue(sp + 32);
@@ -595,8 +705,13 @@ export class Go {
       this.#dataView.setUint8(sp + 48, 1);
     },
 
-    // func copyBytesToJS(dst ref, src []byte) (int, bool)
-    "syscall/js.copyBytesToJS": (sp: number) => {
+    /**
+     * ```go
+     * func copyBytesToJS(dst ref, src []byte) (int, bool)
+     * ```
+     * @param {number} sp
+     */
+    "syscall/js.copyBytesToJS": (sp) => {
       sp >>>= 0;
       const dst = this.#loadValue(sp + 8);
       const src = this.#loadSlice(sp + 16);
@@ -610,46 +725,95 @@ export class Go {
       this.#dataView.setUint8(sp + 48, 1);
     },
 
-    debug: (value: any) => {
+    /**
+     * @param {any} value
+     */
+    debug: (value) => {
       globalThis.console?.log(value);
     },
   };
 
-  protected _pendingEvent: { id: number; this: any; args: any[] } | null = null;
+  /**
+   * @protected
+   * @type {{ id: number; this: any; args: any[] } | null}
+   */
+  _pendingEvent = null;
+
   #resume() {
     if (this.#readyState !== "running") {
       throw new Error("Go program has already exited");
     }
-    const resume = this.#instance!.exports.resume as () => void;
+    const resume = this.#instance.exports.resume;
     resume();
   }
-  protected _makeFuncWrapper(id: number) {
+
+  /**
+   * @protected
+   * @param {number} id
+   * @returns {(this: any, ...args: any[]) => { id: number; this: any; args: any[]; result: any }}
+   */
+  _makeFuncWrapper(id) {
     const go = this;
-    return function (this: any, ...args: any) {
+    return function (...args) {
       const event = { id: id, this: this, args: args };
       go._pendingEvent = event;
       go.#resume();
-      return (event as typeof event & { result: any }).result;
+      return event.result;
     };
   }
 
-  #fs: any | null = null;
-  #process: any | null = null;
-  #instance: WebAssembly.Instance | null = null;
-  #startDeferred: {
-    promise: Promise<number>;
-    resolve: (value: number) => void;
-    reject: (reason: any) => void;
-  } | null = null;
-  #values: any[] | null = null;
-  #goRefCounts: number[] | null = null;
-  #ids: Map<any, number> | null = null;
-  #idPool: number[] | null = null;
-  #nextCallbackTimeoutID: number = 1;
-  #scheduledTimeouts: Map<number, number> | null = null;
+  /**
+   * @type {any | null}
+   */
+  #fs = null;
 
   /**
-   * @param {WebAssembly.Instance} instance 
+   * @type {any | null}
+   */
+  #process = null;
+
+  /**
+   * @type {WebAssembly.Instance | null}
+   */
+  #instance = null;
+
+  /**
+   * @type {{ promise: Promise<number>; resolve: (value: number) => void; reject: (reason: any) => void; } | null}
+   */
+  #startDeferred = null;
+
+  /**
+   * @type {any[] | null}
+   */
+  #values = null;
+
+  /**
+   * @type {number[] | null}
+   */
+  #goRefCounts = null;
+
+  /**
+   * @type {Map<any, number> | null}
+   */
+  #ids = null;
+
+  /**
+   * @type {number[] | null}
+   */
+  #idPool = null;
+
+  /**
+   * @type {number}
+   */
+  #nextCallbackTimeoutID = 1;
+
+  /**
+   * @type {Map<number, number> | null}
+   */
+  #scheduledTimeouts = null;
+
+  /**
+   * @param {WebAssembly.Instance} instance
    * @returns {Promise<number>} Will never resolve if `options.returnOnExit` is `false` (the program will exit instead).
    */
   async start(instance) {
@@ -663,14 +827,13 @@ export class Go {
     this.#goRefCounts = new Array(this.#values.length).fill(Infinity);
     // @ts-ignore
     this.#ids = new Map([
-        [0, 1],
-        [null, 2],
-        [true, 3],
-        [false, 4],
-        [globalThis, 5],
-        [this, 6],
-        [this.#shared, 7],
-      ]);
+      [0, 1],
+      [null, 2],
+      [true, 3],
+      [false, 4],
+      [globalThis, 5],
+      [this, 6],
+    ]);
     this.#idPool = [];
     this.#scheduledTimeouts = new Map();
 
@@ -678,7 +841,7 @@ export class Go {
     let offset = 4096;
 
     /**
-     * @param {string} str 
+     * @param {string} str
      * @returns {number}
      */
     const strPtr = (str) => {
@@ -725,9 +888,9 @@ export class Go {
 
     this.#startDeferred = PromiseWithResolvers(Promise);
     this.#readyState = "running";
-    const run =
-      /** @type {(argc: number, argvPtr: number) => void} */ (this.#instance
-        .exports.run);
+    const run = /** @type {(argc: number, argvPtr: number) => void} */ (
+      this.#instance.exports.run
+    );
     run(argc, argvPtr);
     return this.#startDeferred.promise;
   }

@@ -570,12 +570,12 @@ func TestCopyBytesToJS(t *testing.T) {
 }
 
 func TestGarbageCollection(t *testing.T) {
-	before := js.JSGo.Get("_values").Length()
+	before := js.Sys().Get("_values").Length()
 	for i := 0; i < 1000; i++ {
 		_ = js.Global().Get("Object").New().Call("toString").String()
 		runtime.GC()
 	}
-	after := js.JSGo.Get("_values").Length()
+	after := js.Sys().Get("_values").Length()
 	if after-before > 500 {
 		t.Errorf("garbage collection ineffective")
 	}
