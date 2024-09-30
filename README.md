@@ -1,12 +1,42 @@
-# Go multiplatform & Go better `GOOS=js`
+# Go multiplatform and Go better `GOOS=js`
+
+🤩 Single-file executable with better JavaScript support and integration \
+🔀 Friendly fork of [golang/go](https://github.com/golang/go)
+
+<table align=center><td>
+
+```sh
+GOOS=js GOARCH=wasm ./go build -o main.js
+```
+
+<tr><td>
+
+```sh
+node ./main.js
+```
+
+```html
+<script type="module" src="./main.js"></script>
+```
+
+</table>
+
+🐢 Zero-config usage with any ES2020 JavaScript runtime that supports WebAssembly \
+🆕 New `wasm_exec.js` Uses ECMAScript modules & `node:wasi`-like conventions \
+🌌 Bundled as an [actually portable executable](https://justine.lol/ape.html) that works on Windows, macOS, and Linux \
+🚚 `os/exec` works using `node:child_process` if available \
+💻 `http.ListenAndServe()` works using `node:http` if available
 
 ## Installation
 
-```sh
-
-```
+TODO
 
 ## Usage
+
+```sh
+GOOS=js GOARCH=wasm ./go build ./main.go
+node ./main
+```
 
 ```js
 import { Go } from "./wasm_exec.js";

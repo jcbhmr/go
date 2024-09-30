@@ -11,17 +11,17 @@
 export {};
 
 import { Go } from "./wasm_exec.js";
-
-// TODO: Use `Uint8Array.fromBase64()` when it's available
 // @ts-ignore
-const testWASM = Uint8Array.from(atob(REPLACE_ME_WITH_TEST_WASM_BASE64), (m) =>
-  m.charCodeAt(0)
-);
+import testWASM_ from "./test.wasm?init";
+/** @type {WebAssembly.Module} */
+const testWASM = testWASM_;
+
 const go = new Go({
+  import: (s, o) => import(s),
   importMeta: import.meta,
   returnOnExit: false,
 });
-const { instance } = await WebAssembly.instantiate(
+const instance = await WebAssembly.instantiate(
   testWASM,
   go.getImportObject()
 );

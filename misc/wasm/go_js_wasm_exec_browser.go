@@ -26,19 +26,24 @@ const html = `<!DOCTYPE html>
 </html>`
 
 func main() {
+  if len(os.Args) < 2 {
+    log.Fatal("missing argument: path/to/test.js")
+  }
+
+  js, err := os.ReadFile(os.Args[1])
+  if err != nil {
+    log.Fatal(err)
+  }
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]byte(html))
 	})
 	http.HandleFunc("/test.js", func(w http.ResponseWriter, r *http.Request) {
-    js, err := os.ReadFile(os.Args[1])
-    if err != nil {
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-      return
-    }
 		w.Header().Set("Content-Type", "text/javascript")
     w.Write(js)
 	})
 	log.Println("Open http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+  err = http.ListenAndServe(":8080", nil)
+	log.Fatal()
 }

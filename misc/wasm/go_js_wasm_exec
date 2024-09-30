@@ -4,15 +4,6 @@
 # license that can be found in the LICENSE file.
 
 case "$GOJSRUNTIME" in
-	"node")
-		exec node --stack-size=8192 ${GOJSRUNTIMEARGS:-} "$1" "${@:2}"
-		;;
-	"deno")
-		exec deno run -A ${GOJSRUNTIMEARGS:-} "$1" "${@:2}"
-		;;
-	"bun")
-		exec bun ${GOJSRUNTIMEARGS:-} "$1" "${@:2}"
-		;;
 	"browser")
 		SOURCE="${BASH_SOURCE[0]}"
 		while [ -h "$SOURCE" ]; do
@@ -23,6 +14,15 @@ case "$GOJSRUNTIME" in
 		DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 		exec go run "$DIR/go_js_wasm_exec_browser.go" "$1" "${@:2}"
+		;;
+	"deno")
+		exec deno run -A ${GOJSRUNTIMEARGS:-} "$1" "${@:2}"
+		;;
+	"bun")
+		exec bun ${GOJSRUNTIMEARGS:-} "$1" "${@:2}"
+		;;
+	"node" || "")
+		exec node --stack-size=8192 ${GOJSRUNTIMEARGS:-} "$1" "${@:2}"
 		;;
 	*)
 		echo "Unknown Go JS runtime specified: $GOJSRUNTIME"
