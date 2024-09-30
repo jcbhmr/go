@@ -98,6 +98,7 @@ var (
 
 	objectConstructor = valueGlobal.Get("Object")
 	arrayConstructor  = valueGlobal.Get("Array")
+	promiseConstructor = valueGlobal.Get("Promise")
 )
 
 // Equal reports whether v and w are equal according to JavaScript's === operator.
@@ -631,6 +632,33 @@ func (v Value) InstanceOf(t Value) bool {
 
 //go:wasmimport gojs syscall/js.valueInstanceOf
 func valueInstanceOf(v ref, t ref) bool
+
+// Wait waits for the thenable v to fulfill or reject and returns the resulting value or error.
+// If v is not a thenable then v is returned immediately.
+// This is equivalent to the await operator in JavaScript.
+func (v Value) Wait() (Value, error) {
+	p := promiseConstructor.Call("resolve", v)
+	type result struct {
+		value Value
+		err error
+	}
+	ch := make(chan result, 1)
+	onFulfilled := FuncOf(func(this Value, args []Value) interface{} {
+		ch <- result{args[0], nil}
+		close(ch)
+		return nil
+	})
+	defer onFulfilled.Release()
+	onRejected := FuncOf(func(this Value, args []Value) interface{} {
+		ch <- result{Value{}, Error{args[0]}}
+		close(ch)
+		return nil
+	})
+	defer onRejected.Release()
+	p.Call("then", onFulfilled, onRejected)
+	r := <-ch
+	return r.value, r.err
+}
 
 // A ValueError occurs when a Value method is invoked on
 // a Value that does not support it. Such cases are documented
