@@ -30,6 +30,7 @@ var dummys = js.Global().Call("eval", `({
 	someFloat: 42.123,
 	someArray: [41, 42, 43],
 	someDate: new Date(),
+	someSymbol: Symbol.for("someSymbol"),
 	add: function(a, b) {
 		return a + b;
 	},
@@ -42,6 +43,9 @@ var dummys = js.Global().Call("eval", `({
 	NegInfinity: -Infinity,
 	objNumber0: new Number(0),
 	objBooleanFalse: new Boolean(false),
+	[Symbol.for("someSymbol")](a, b) {
+		return a + b;
+	},
 })`)
 
 //go:wasmimport _gotest add
@@ -302,12 +306,28 @@ func TestGet(t *testing.T) {
 	})
 }
 
+func TestGetSymbol(t *testing.T) {
+	someSymbol := dummys.Get("someSymbol")
+	got := dummys.GetSymbol(someSymbol)
+	if got.IsUndefined() {
+		t.Errorf("got undefined, want %v", "a function")
+	}
+}
+
 func TestSet(t *testing.T) {
 	// positive cases get tested per type
 
 	expectValueError(t, func() {
 		dummys.Get("zero").Set("badField", 42)
 	})
+}
+
+func TestSetSymbol(t *testing.T) {
+	someSymbol2 := js.Global().Get("Symbol").Call("for", "someSymbol2")
+	dummys.SetSymbol(someSymbol2, 100)
+	if got := dummys.GetSymbol(someSymbol2).Int(); got != 100 {
+		t.Errorf("got %#v, want %#v", got, 100)
+	}
 }
 
 func TestDelete(t *testing.T) {
@@ -320,6 +340,15 @@ func TestDelete(t *testing.T) {
 	expectValueError(t, func() {
 		dummys.Get("zero").Delete("badField")
 	})
+}
+
+func TestDeleteSymbol(t *testing.T) {
+	someSymbol := js.Global().Get("Symbol").Call("for", "someSymbol2")
+	dummys.SetSymbol(someSymbol, 100)
+	dummys.DeleteSymbol(someSymbol)
+	if dummys.Call("hasOwnProperty", someSymbol).Bool() {
+		t.Errorf("property still exists")
+	}
 }
 
 func TestIndex(t *testing.T) {
@@ -358,6 +387,13 @@ func TestCall(t *testing.T) {
 	expectValueError(t, func() {
 		dummys.Get("zero").Call("badMethod")
 	})
+}
+
+func TestCallSymbol(t *testing.T) {
+	someSymbol := js.Global().Get("Symbol").Call("for", "someSymbol")
+	if got := dummys.CallSymbol(someSymbol, 40, 2).Int(); got != 42 {
+		t.Errorf("got %#v, want %#v", got, 42)
+	}
 }
 
 func TestInvoke(t *testing.T) {

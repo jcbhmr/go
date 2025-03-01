@@ -309,6 +309,27 @@ func (v Value) Get(p string) Value {
 //go:noescape
 func valueGet(v ref, p string) ref
 
+// GetSymbol returns the JavaScript symbol property s of value v.
+// It panics if v is not a JavaScript object.
+// It panics if s is not a JavaScript symbol.
+func (v Value) GetSymbol(s Value) Value {
+	if vType := v.Type(); !vType.isObject() {
+		panic(&ValueError{"Value.Symbol", vType})
+	}
+	if sType := s.Type(); sType != TypeSymbol {
+		panic(&ValueError{"Value.Symbol", sType})
+	}
+	r := makeValue(valueGetSymbol(v.ref, s.ref))
+	runtime.KeepAlive(v)
+	runtime.KeepAlive(s)
+	return r
+}
+
+// valueGetSymbol returns a ref to JavaScript symbol property s of ref v.
+//
+//go:wasmimport gojs syscall/js.valueGetSymbol
+func valueGetSymbol(v ref, s ref) ref
+
 // Set sets the JavaScript property p of value v to ValueOf(x).
 // It panics if v is not a JavaScript object.
 func (v Value) Set(p string, x any) {
@@ -330,6 +351,28 @@ func (v Value) Set(p string, x any) {
 //go:noescape
 func valueSet(v ref, p string, x ref)
 
+// SetSymbol sets the JavaScript symbol property s of value v to ValueOf(x).
+// It panics if v is not a JavaScript object.
+// It panics if s is not a JavaScript symbol.
+func (v Value) SetSymbol(s Value, x any) {
+	if vType := v.Type(); !vType.isObject() {
+		panic(&ValueError{"Value.SetSymbol", vType})
+	}
+	if sType := s.Type(); sType != TypeSymbol {
+		panic(&ValueError{"Value.SetSymbol", sType})
+	}
+	xv := ValueOf(x)
+	valueSetSymbol(v.ref, s.ref, xv.ref)
+	runtime.KeepAlive(v)
+	runtime.KeepAlive(s)
+	runtime.KeepAlive(xv)
+}
+
+// valueSetSymbol sets symbol property s of ref v to ref x.
+//
+//go:wasmimport gojs syscall/js.valueSetSymbol
+func valueSetSymbol(v ref, s ref, x ref)
+
 // Delete deletes the JavaScript property p of value v.
 // It panics if v is not a JavaScript object.
 func (v Value) Delete(p string) {
@@ -348,6 +391,24 @@ func (v Value) Delete(p string) {
 //go:wasmimport gojs syscall/js.valueDelete
 //go:noescape
 func valueDelete(v ref, p string)
+
+// DeleteSymbol deletes the JavaScript symbol property s of value v.
+// It panics if v is not a JavaScript object.
+// It panics if s is not a JavaScript symbol.
+func (v Value) DeleteSymbol(s Value) {
+	if vType := v.Type(); !vType.isObject() {
+		panic(&ValueError{"Value.DeleteSymbol", vType})
+	}
+	if sType := s.Type(); sType != TypeSymbol {
+		panic(&ValueError{"Value.DeleteSymbol", sType})
+	}
+	valueDeleteSymbol(v.ref, s.ref)
+}
+
+// valueDeleteSymbol deletes the JavaScript symbol property s of ref v.
+//
+//go:wasmimport gojs syscall/js.valueDeleteSymbol
+func valueDeleteSymbol(v ref, s ref)
 
 // Index returns JavaScript index i of value v.
 // It panics if v is not a JavaScript object.
@@ -456,6 +517,37 @@ func (v Value) Call(m string, args ...any) Value {
 //go:nosplit
 //go:noescape
 func valueCall(v ref, m string, args []ref) (ref, bool)
+
+// CallSymbol does a JavaScript call to the symbol method s of value v with the given arguments.
+// It panics if v has no symbol method s.
+// The arguments get mapped to JavaScript values according to the ValueOf function.
+func (v Value) CallSymbol(s Value, args ...any) Value {
+	if sType := s.Type(); sType != TypeSymbol {
+		panic(&ValueError{"Value.CallSymbol", sType})
+	}
+	argVals, argRefs := makeArgSlices(len(args))
+	storeArgs(args, argVals, argRefs)
+	res, ok := valueCallSymbol(v.ref, s.ref, argRefs)
+	runtime.KeepAlive(v)
+	runtime.KeepAlive(s)
+	runtime.KeepAlive(argVals)
+	if !ok {
+		if vType := v.Type(); !vType.isObject() { // check here to avoid overhead in success case
+			panic(&ValueError{"Value.CallSymbol", vType})
+		}
+		panic(Error{makeValue(res)})
+	}
+	return makeValue(res)
+}
+
+// valueCallSymbol does a JavaScript call to the symbol method s of ref v with the given arguments.
+//
+// Using go:noescape is safe because the args slice is only used temporarily
+// to collect the JavaScript objects for the JavaScript method invocation.
+//
+//go:wasmimport gojs syscall/js.valueCallSymbol
+//go:noescape
+func valueCallSymbol(v ref, s ref, args []ref) (ref, bool)
 
 // Invoke does a JavaScript call of the value v with the given arguments.
 // It panics if v is not a JavaScript function.
