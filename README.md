@@ -1,3 +1,23 @@
+# My Go fork
+
+- [ ] [asyncfuncof](https://github.com/jcbhmr/go/tree/asyncfuncof) [golang/go#TODO](https://github.com/golang/go/pulls/TODO) [golang.org/cl/TODO](https://go-review.googlesource.com/c/go/+/TODO)
+- [ ] [await](https://github.com/jcbhmr/go/tree/await) [golang/go#TODO](https://github.com/golang/go/pulls/TODO) [golang.org/cl/TODO](https://go-review.googlesource.com/c/go/+/TODO)
+- [ ] [bigint](https://github.com/jcbhmr/go/tree/bigint) [golang/go#TODO](https://github.com/golang/go/pulls/TODO) [golang.org/cl/TODO](https://go-review.googlesource.com/c/go/+/TODO)
+- [ ] [import](https://github.com/jcbhmr/go/tree/import) [golang/go#TODO](https://github.com/golang/go/pulls/TODO) [golang.org/cl/TODO](https://go-review.googlesource.com/c/go/+/TODO)
+- [ ] [strictstring](https://github.com/jcbhmr/go/tree/strictstring) [golang/go#TODO](https://github.com/golang/go/pulls/TODO) [golang.org/cl/TODO](https://go-review.googlesource.com/c/go/+/TODO)
+- [ ] [has](https://github.com/jcbhmr/go/tree/has) [golang/go#TODO](https://github.com/golang/go/pulls/TODO) [golang.org/cl/TODO](https://go-review.googlesource.com/c/go/+/TODO)
+- [ ] [symbolkey](https://github.com/jcbhmr/go/tree/symbolkey) [golang/go#TODO](https://github.com/golang/go/pulls/TODO) [golang.org/cl/TODO](https://go-review.googlesource.com/c/go/+/TODO)
+
+```sh
+git clone https://github.com/golang/go.git
+cd ./go/
+curl --location https://github.com/golang/go/pulls/TODO.patch | git apply
+cd ./src/
+./make.bash
+```
+
+---
+
 # The Go Programming Language
 
 Go is an open source programming language that makes it easy to build simple,
