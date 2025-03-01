@@ -5,7 +5,6 @@
 - [ ] [bigint](https://github.com/jcbhmr/go/tree/bigint) [golang/go#TODO](https://github.com/golang/go/pulls/TODO) [golang.org/cl/TODO](https://go-review.googlesource.com/c/go/+/TODO)
 - [ ] [import](https://github.com/jcbhmr/go/tree/import) [golang/go#TODO](https://github.com/golang/go/pulls/TODO) [golang.org/cl/TODO](https://go-review.googlesource.com/c/go/+/TODO)
 - [ ] [strictstring](https://github.com/jcbhmr/go/tree/strictstring) [golang/go#TODO](https://github.com/golang/go/pulls/TODO) [golang.org/cl/TODO](https://go-review.googlesource.com/c/go/+/TODO)
-- [ ] [has](https://github.com/jcbhmr/go/tree/has) [golang/go#TODO](https://github.com/golang/go/pulls/TODO) [golang.org/cl/TODO](https://go-review.googlesource.com/c/go/+/TODO)
 - [ ] [symbolkey](https://github.com/jcbhmr/go/tree/symbolkey) [golang/go#TODO](https://github.com/golang/go/pulls/TODO) [golang.org/cl/TODO](https://go-review.googlesource.com/c/go/+/TODO)
 
 ```sh
